@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review client approvals and issue a traceable PayPal sandbox invoice.">
+  <title>ScopeProof · Billing Review</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="top"><div class="wrap brand"><span class="mark" aria-hidden="true">✓</span> ScopeProof <span class="mode">SANDBOX</span></div></header>
+  <main class="wrap">
+    <section class="intro">
+      <p class="eyebrow">BILLING WORKSPACE / 01</p>
+      <h1>Every charge. <em>Backed by approval.</em></h1>
+      <p>Compare the agreed scope with the conversation, review the evidence, and turn approved work into a PayPal invoice.</p>
+    </section>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="source-heading">
+        <div class="heading"><span class="step">01</span><h2 id="source-heading">Project evidence</h2><button id="sample" class="subtle" type="button">Load sample</button></div>
+        <form id="analyze">
+          <label for="brief">Approved project brief</label>
+          <textarea id="brief" rows="4" maxlength="8000" required placeholder="Paste the scope and agreed price."></textarea>
+          <label for="chat">Client conversation</label>
+          <textarea id="chat" rows="8" maxlength="8000" required placeholder="Paste the messages in chronological order."></textarea>
+          <p class="hint">Use the sample or paste non-sensitive text in English. Analysis sends it to Gemini.</p>
+          <button type="submit" class="primary">Analyze billing evidence <span aria-hidden="true">↗</span></button>
+          <p id="analysis-message" class="message" role="status"></p>
+          <div id="scenario" class="scenario" hidden>
+            <p class="eyebrow">SAMPLE FOLLOW-UP</p>
+            <p>What changes if the client cancels the approved redesign?</p>
+            <button id="try-cancellation" type="button" class="subtle">Try cancellation</button>
+          </div>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="review-heading">
+        <div class="heading"><span class="step">02</span><h2 id="review-heading">Invoice review</h2><span class="currency">USD</span></div>
+        <div id="empty" class="empty"><span aria-hidden="true">◇</span><p>Evidence appears here after analysis.</p></div>
+        <div id="review-summary" class="review-summary" hidden aria-label="Invoice summary">
+          <div><span>Billable now</span><output id="total-top">$0.00</output><small id="included-count"></small></div>
+          <div><span>Excluded</span><strong id="excluded-total">$0.00</strong><small id="excluded-count"></small></div>
+        </div>
+        <p id="review-change" class="review-change" role="status" hidden></p>
+        <form id="invoice" hidden>
+          <div id="items"></div>
+          <div class="total"><span>Invoice total</span><output id="total">$0.00</output></div>
+          <label for="email">PayPal Sandbox buyer email</label>
+          <input id="email" type="email" maxlength="254" required autocomplete="off">
+          <label class="confirm"><input id="confirmed" type="checkbox" required> I reviewed the included charges and recipient.</label>
+          <button id="issue" class="primary" type="submit">Issue PayPal invoice <span aria-hidden="true">↗</span></button>
+          <p id="invoice-message" class="message" role="status"></p>
+        </form>
+        <div id="receipt" class="receipt" hidden>
+          <p class="eyebrow">PAYPAL SANDBOX RESPONSE</p>
+          <strong id="status" role="status"></strong>
+          <p id="receipt-id" class="hint"></p>
+          <a id="buyer" class="subtle" target="_blank" rel="noopener noreferrer" hidden>Open buyer invoice ↗</a>
+          <button id="refresh" class="subtle" type="button">Refresh status</button>
+          <p id="receipt-message" class="message" role="status"></p>
+        </div>
+      </section>
+    </div>
+    <footer>ScopeProof <span>Evidence review · Gemini + PayPal Sandbox</span></footer>
+  </main>
+</body>
+</html>
