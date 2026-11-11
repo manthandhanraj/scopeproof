@@ -11,10 +11,12 @@ test('signup handles confirmation and sign-in without storing provider credentia
     if (previous.key === undefined) delete process.env.SUPABASE_ANON_KEY; else process.env.SUPABASE_ANON_KEY = previous.key;
   });
   let confirmed = false;
+  let providerError;
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     assert.equal(new URL(url).hostname, 'auth.supabase.co');
     assert.equal(options.headers.apikey, 'public-test-key');
     assert.equal(JSON.parse(options.body).password, 'a-new-password');
+    if (providerError) return Response.json({ code: providerError }, { status: 429 });
     return Response.json(confirmed ? { access_token: 'provider-token', user: { id: 'user-456', email: 'person@example.test' } } : { user: { id: 'user-456' } });
   });
   const auth = authentication('a-long-test-session-secret', true);
@@ -32,4 +34,8 @@ test('signup handles confirmation and sign-in without storing provider credentia
   assert.equal(auth.user({ headers: { cookie } }).id, 'user-456');
   await auth.action('/api/auth/logout', {}, res);
   assert.match(res.headers['Set-Cookie'], /Max-Age=0/);
+  providerError = 'over_email_send_rate_limit';
+  await assert.rejects(auth.action('/api/auth/signup', input, res), /Confirmation emails have reached/);
+  providerError = 'over_request_rate_limit';
+  await assert.rejects(auth.action('/api/auth/signup', input, res), /Too many sign-in or signup requests/);
 });

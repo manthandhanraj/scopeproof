@@ -54,7 +54,11 @@ export function authentication(secret, secure) {
     } catch { throw fail(502, 'Account service is temporarily unavailable. Please try again.'); }
     const result = await response.json().catch(() => null);
     if (!response.ok) {
-      if (response.status === 429) throw fail(429, 'Too many attempts. Please wait a moment before trying again.');
+      const code = result?.code || result?.error_code;
+      if (code === 'over_email_send_rate_limit') throw fail(429, 'Confirmation emails have reached their sending limit. Please try again later or open the demo workspace.');
+      if (code === 'email_address_not_authorized') throw fail(400, 'Confirmation email delivery is not configured for this address. Contact the demo owner or try the demo workspace.');
+      if (code === 'email_not_confirmed') throw fail(400, 'Confirm your email before signing in. Check your inbox and spam folder.');
+      if (response.status === 429) throw fail(429, 'Too many sign-in or signup requests. Please wait a few minutes before trying again.');
       throw fail(400, signup ? 'Account creation could not be completed. Try signing in or check your email confirmation settings.' : 'Sign-in failed. Check your email, password, and email confirmation.');
     }
     if (signup && !result?.access_token) return { signedIn: false, message: 'Check your email to confirm your account, then return here to sign in.' };
