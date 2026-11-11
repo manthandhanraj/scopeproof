@@ -16,7 +16,7 @@ For the USD demo, use a United States Business sandbox account for the REST app 
 
 ## Judge walkthrough
 
-1. Click **Try demo** on the login page. The sample is preloaded. Click **Analyze billing evidence**. You can also use **Load sample** to restore it later.
+1. Click **Try demo** on the login page. The inputs start empty. Click **Load sample**, then **Analyze billing evidence**.
 2. Verify **Billable now** is $375 and **Excluded** is $80. Open the redesign's **Decision timeline** to trace the proposed charge and the client's approval.
 3. Click **Try cancellation**. ScopeProof appends a follow-up message and analyzes it. The redesign is marked **Cancelled**, the decisive message is highlighted, and the review shows $375 → $300. Click **Load sample** and analyze again to restore the original scenario before issuing the $375 invoice.
 4. Check the recipient, confirm the reviewed charges, and click **Issue PayPal invoice**. The app creates a draft, makes it payable without emailing anyone, then retrieves the invoice ID, state, and sandbox buyer link from PayPal.
@@ -56,14 +56,15 @@ Run `npm.cmd run verify` on Windows, or `npm run verify` on macOS and Linux. The
 
 To also verify the configured live Gemini reviews and read-only PayPal Sandbox access, run `npm.cmd run verify -- --live` on Windows, or `npm run verify -- --live` on macOS and Linux. Credentials are inherited from your local environment and are not copied into the temporary source folder. This command does not create invoices or initiate payments.
 
-The browser remembers the last invoice reference separately for each account on the same origin and retrieves its current state from PayPal after a page reload. Local SQLite retains request history when its filesystem persists. Hosted demos additionally sign successful invoice references using the session secret and account identity. These browser references still work after Render Free resets its local filesystem, provided the session secret remains the same.
+The browser remembers the last invoice reference separately for each account on the same origin and retrieves its current state from PayPal only when you click **View previous invoice**. Fresh visits start without a visible receipt. Local SQLite retains request history when its filesystem persists. Hosted demos additionally sign successful invoice references using the session secret and account identity. These browser references still work after Render Free resets its local filesystem, provided the session secret remains the same.
 
 ## Accounts
 
-The login page includes **Try demo**, **Sign in**, and **Create account**. Demo entry uses a signed HttpOnly session cookie and preloads the sample. Real accounts use Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` to enable signup and sign-in. Email confirmation follows your Supabase settings. Passwords are sent directly from this server to Supabase over HTTPS and are not stored in the local invoice database or browser storage. Account sessions expire after 12 hours. See [DEPLOYMENT.md](DEPLOYMENT.md) for configuration and testing instructions.
+The login page includes **Try demo**, **Sign in**, and **Create account**. Demo entry uses a signed HttpOnly session cookie and opens an empty workspace. Real accounts use Supabase Auth. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` to enable signup and sign-in. Email confirmation follows your Supabase settings. Passwords are sent directly from this server to Supabase over HTTPS and are not stored in the local invoice database or browser storage. Account sessions expire after 12 hours. See [DEPLOYMENT.md](DEPLOYMENT.md) for configuration and testing instructions.
 
 ## Access for judges
 
 For a local build, follow **Run locally** and **Judge walkthrough**. Live features require a usable Gemini API key and a PayPal Sandbox business app with Invoicing enabled. A supplied private demo access path, if included in the submission, should let judges use these features without provisioning their own API account. Keep that access and its provider credits active through December 15, 2026.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render Blueprint and hosted judge access setup. A live deployment URL and its testing instructions must be supplied in the Devpost submission. Deployment and the hosted judge walkthrough remain pending.
+

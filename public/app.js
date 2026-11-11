@@ -20,6 +20,7 @@ let reviewItems = [];
 let receiptOperation;
 let serverInstance;
 let receiptStorage;
+let previousInvoice;
 
 async function request(url, data) {
   const response = await fetch(url, data === undefined ? {} : {
@@ -64,7 +65,14 @@ function sourceLabel(source) {
   return `${source.label} · line ${source.line}`;
 }
 
+function hideReceipt() {
+  receiptOperation = undefined;
+  el('receipt').hidden = true;
+  el('view-previous').hidden = !previousInvoice;
+}
+
 function renderReview(items, inputs) {
+  hideReceipt();
   reviewItems = items;
   el('items').replaceChildren();
   for (const item of items) {
@@ -126,6 +134,7 @@ function renderReview(items, inputs) {
 }
 
 function invalidateReview() {
+  hideReceipt();
   sourceVersion++;
   el('analysis-message').textContent = '';
   el('scenario').hidden = true;
@@ -139,6 +148,9 @@ function invalidateReview() {
 el('brief').addEventListener('input', invalidateReview);
 el('chat').addEventListener('input', invalidateReview);
 el('sample').addEventListener('click', () => {
+  if (busy) return;
+  submitted = null;
+  previousReview = undefined;
   el('brief').value = sampleBrief;
   el('chat').value = sampleChat;
   invalidateReview();
@@ -179,6 +191,8 @@ function showReceipt(data) {
     receiptOperation = data.reference;
     try { localStorage.setItem(receiptStorage, receiptOperation); } catch { /* Browser storage can be unavailable. */ }
   }
+  previousInvoice = receiptOperation;
+  el('view-previous').hidden = true;
   el('receipt').hidden = false;
   el('status').textContent = data.status.replaceAll('_', ' ');
   el('receipt-id').textContent = `${data.id}${data.amount ? ` · ${money(Number(data.amount) * 100)}` : ''}`;
@@ -188,6 +202,7 @@ function showReceipt(data) {
 
 async function refreshReceipt() {
   const current = receiptOperation;
+  if (!current) return;
   const receipt = await request(`/api/invoice/${current}`);
   if (current !== receiptOperation) return;
   showReceipt(receipt);
@@ -235,6 +250,23 @@ el('refresh').addEventListener('click', async () => {
   }
 });
 
+el('view-previous').addEventListener('click', async () => {
+  if (busy || !previousInvoice) return;
+  busy = true;
+  el('view-previous').disabled = true;
+  receiptOperation = previousInvoice;
+  try {
+    await refreshReceipt();
+  } catch (error) {
+    el('receipt').hidden = false;
+    el('status').textContent = 'Previous invoice unavailable';
+    el('receipt-message').textContent = error.message;
+  } finally {
+    busy = false;
+    el('view-previous').disabled = false;
+  }
+});
+
 el('signout').addEventListener('click', async () => {
   await request('/api/auth/logout', {});
   location.assign('/');
@@ -243,18 +275,10 @@ el('signout').addEventListener('click', async () => {
 request('/api/config').then(({ buyer, instance, user }) => {
   serverInstance = instance;
   el('account-name').textContent = user.demo ? 'Demo workspace' : user.name;
-  if (user.demo && !el('brief').value && !el('chat').value) {
-    el('brief').value = sampleBrief;
-    el('chat').value = sampleChat;
-  }
   if (!el('email').value) el('email').value = buyer;
   receiptStorage = `scopeproof.invoice.${user.id}`;
   try {
-    receiptOperation = localStorage.getItem(receiptStorage) || (user.demo ? localStorage.getItem('scopeproof.invoice') : null);
-    if (receiptOperation) refreshReceipt().catch(error => {
-      el('receipt').hidden = false;
-      el('status').textContent = 'Check previous invoice';
-      el('receipt-message').textContent = `${error.message} Check the Sandbox Invoicing dashboard before issuing another invoice.`;
-    });
+    previousInvoice = localStorage.getItem(receiptStorage) || (user.demo ? localStorage.getItem('scopeproof.invoice') : null);
+    el('view-previous').hidden = !previousInvoice;
   } catch { /* The rest of the app also works without browser storage. */ }
 }).catch(() => {});

@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 const live = process.argv.includes('--live');
 const source = new URL('../', import.meta.url);
 const checkout = await mkdtemp(join(tmpdir(), 'scopeproof-verify-'));
-const publicFiles = ['package.json', 'auth.js', 'auth.test.js', 'server.js', 'server.test.js', 'public', 'scripts', 'README.md', 'DEPLOYMENT.md', 'SUBMISSION.md', 'render.yaml', 'LICENSE', '.env.example', '.gitignore'];
+const publicFiles = ['package.json', 'auth.js', 'auth.test.js', 'workspace.test.js', 'server.js', 'server.test.js', 'public', 'scripts', 'README.md', 'DEPLOYMENT.md', 'SUBMISSION.md', 'render.yaml', 'LICENSE', '.env.example', '.gitignore'];
 for (const name of publicFiles) await cp(new URL(name, source), join(checkout, name), { recursive: true });
 console.log('Fresh source copy prepared without credentials or existing invoice data.');
 

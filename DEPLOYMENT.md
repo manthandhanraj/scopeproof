@@ -18,10 +18,10 @@ Free services sleep after 15 minutes of inactivity and can take about a minute t
 ## Verify the hosted demo
 
 1. Open `/health` at the hosted address and verify the result is `{"status":"ok"}`.
-2. Open the base address in an Incognito window. Verify the ScopeProof login page appears. Click **Try demo** and verify the workspace opens with sample text preloaded.
+2. Open the base address in an Incognito window. Verify the ScopeProof login page appears. Click **Try demo** and verify the workspace opens with empty inputs. Click **Load sample** to fill them.
 3. Analyze the sample. Expect $375 billable and $80 excluded. Click **Try cancellation** and expect $300 billable. Also test **Sign out**, **Create account**, and **Sign in** after configuring Supabase.
 4. Restore and analyze the sample, issue one sandbox invoice, and verify its buyer link. Complete the sandbox payment and refresh the invoice status.
-5. Reload the page and verify the same invoice status is recovered. Restart the Render service and refresh again to verify the signed reference still retrieves that invoice from PayPal.
+5. Reload the page and verify the workspace starts without a receipt. Click **View previous invoice** to recover the same invoice status. Restart the Render service and refresh again to verify the signed reference still retrieves that invoice from PayPal.
 
 ## Supply access to judges
 
@@ -34,3 +34,4 @@ Keep the hosted service, credentials, Gemini access, and any funding or credits 
 - [Persistent disks](https://render.com/docs/disks)
 - [Blueprint specification](https://render.com/docs/blueprint-spec)
 - [Environment variables](https://render.com/docs/configure-environment-variables)
+
