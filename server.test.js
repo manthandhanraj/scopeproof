@@ -56,6 +56,9 @@ test('grounding sorts original evidence and holds unsupported or conflicting cha
 });
 
 test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and status refresh', async t => {
+  process.env.DEMO_USERNAME = 'judge';
+  process.env.DEMO_PASSWORD = 'a-long-test-password';
+  process.env.RENDER = 'true';
   const config = { GEMINI_API_KEY: 'test', PAYPAL_CLIENT_ID: 'test', PAYPAL_CLIENT_SECRET: 'test' };
   for (const [key, value] of Object.entries(config)) {
     const original = process.env[key];
@@ -109,7 +112,8 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   const request = (path, payload) => new Promise(resolve => {
     const req = Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]);
     req.method = payload === undefined ? 'GET' : 'POST';
-    req.headers = payload === undefined ? {} : { 'content-type': 'application/json' };
+    req.headers = { authorization: `Basic ${Buffer.from('judge:a-long-test-password').toString('base64')}` };
+    if (payload !== undefined) req.headers['content-type'] = 'application/json';
     req.url = path;
     const res = {
       setHeader() {},
@@ -127,7 +131,8 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   assert.equal(review.items[2].evidence[0].line, 2);
   assert.equal(analyses, 2);
   const operation = randomUUID();
-  const payload = { operation, email: 'buyer@example.test', items: review.items.filter(item => item.status === 'approved') };
+  const { instance } = await (await request('/api/config')).json();
+  const payload = { operation, instance, email: 'buyer@example.test', items: review.items.filter(item => item.status === 'approved') };
   assert.equal((await request('/api/invoice', payload)).status, 400);
   assert.equal(drafts, 0);
   payload.confirmed = true;
@@ -143,7 +148,14 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   server.emit('close');
   server = app(database);
   assert.equal((await (await request(`/api/invoice/${operation}`)).json()).status, 'PAID');
+  payload.instance = (await (await request('/api/config')).json()).instance;
   assert.equal((await (await request('/api/invoice', payload)).json()).status, 'PAID');
   assert.equal(drafts, 1);
   assert.equal(sends, 2);
+  server.emit('close');
+  server = app(':memory:');
+  assert.equal((await (await request(`/api/invoice/${receipt.reference}`)).json()).status, 'PAID');
+  assert.equal((await request(`/api/invoice/${receipt.reference.slice(0, -1)}x`)).status, 404);
+  assert.equal((await request('/api/invoice', payload)).status, 409);
+  assert.equal(drafts, 1);
 });

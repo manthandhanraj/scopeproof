@@ -56,7 +56,7 @@ Run `npm.cmd run verify` on Windows, or `npm run verify` on macOS and Linux. The
 
 To also verify the configured live Gemini reviews and read-only PayPal Sandbox access, run `npm.cmd run verify -- --live` on Windows, or `npm run verify -- --live` on macOS and Linux. Credentials are inherited from your local environment and are not copied into the temporary source folder. This command does not create invoices or initiate payments.
 
-The browser remembers the last invoice reference on the same origin and retrieves its current state from PayPal after a page reload. Restarting the server preserves invoice references in SQLite. A new source checkout has a fresh invoice history.
+The browser remembers the last invoice reference on the same origin and retrieves its current state from PayPal after a page reload. Local SQLite retains request history when its filesystem persists. Hosted demos additionally sign successful invoice references using the demo password. These browser references still work after Render Free resets its local filesystem, provided the demo password remains the same.
 
 ## Access for judges
 

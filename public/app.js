@@ -18,6 +18,7 @@ let sourceVersion = 0;
 let previousReview;
 let reviewItems = [];
 let receiptOperation;
+let serverInstance;
 
 async function request(url, data) {
   const response = await fetch(url, data === undefined ? {} : {
@@ -172,6 +173,10 @@ el('analyze').addEventListener('submit', async event => {
 });
 
 function showReceipt(data) {
+  if (data.reference) {
+    receiptOperation = data.reference;
+    try { localStorage.setItem('scopeproof.invoice', receiptOperation); } catch { /* Browser storage can be unavailable. */ }
+  }
   el('receipt').hidden = false;
   el('status').textContent = data.status.replaceAll('_', ' ');
   el('receipt-id').textContent = `${data.id}${data.amount ? ` · ${money(Number(data.amount) * 100)}` : ''}`;
@@ -194,7 +199,7 @@ el('invoice').addEventListener('submit', async event => {
   if (busy) return;
   busy = true;
   el('issue').disabled = true;
-  submitted ||= { operation, email: el('email').value.trim(), items: selectedItems(), confirmed: el('confirmed').checked };
+  submitted ||= { operation, instance: serverInstance, email: el('email').value.trim(), items: selectedItems(), confirmed: el('confirmed').checked };
   receiptOperation = submitted.operation;
   try { localStorage.setItem('scopeproof.invoice', receiptOperation); } catch { /* Browser storage can be unavailable. */ }
   el('email').disabled = true;
@@ -228,7 +233,10 @@ el('refresh').addEventListener('click', async () => {
   }
 });
 
-request('/api/config').then(({ buyer }) => { if (!el('email').value) el('email').value = buyer; }).catch(() => {});
+request('/api/config').then(({ buyer, instance }) => {
+  serverInstance = instance;
+  if (!el('email').value) el('email').value = buyer;
+}).catch(() => {});
 
 try {
   receiptOperation = localStorage.getItem('scopeproof.invoice');
