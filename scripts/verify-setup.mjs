@@ -22,7 +22,7 @@ const server = app(':memory:').listen(0, '127.0.0.1');
 await once(server, 'listening');
 const base = `http://127.0.0.1:${server.address().port}`;
 try {
-  for (const path of ['/', '/app.js', '/style.css']) {
+  for (const path of ['/', '/app.js', '/style.css', '/logo.svg', '/favicon.svg']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 200);
     assert.ok((await response.text()).length > 100);

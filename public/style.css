@@ -5,7 +5,7 @@ body{margin:0}
 .wrap{width:min(1240px,calc(100% - 48px));margin:auto}
 .top{background:#fff;border-bottom:1px solid var(--line)}
 .brand{height:76px;display:flex;align-items:center;gap:10px;font-size:19px;font-weight:750;letter-spacing:-.04em}
-.mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;color:#fff;background:var(--blue)}
+.brand-logo{display:block;width:40px;height:40px;flex:none}
 .mode,.currency,.step,.eyebrow{font:750 11px/1.5 ui-monospace,monospace;letter-spacing:.1em}
 .mode{margin-left:auto;background:#edf4ff;padding:5px 9px;border-radius:6px;color:var(--blue)}
 .intro{padding:30px 0 24px}
@@ -67,4 +67,5 @@ blockquote p{margin:2px 0}
 .receipt strong{font-size:23px}.receipt .hint{margin:5px 0 9px}
 footer{padding:25px 0;font-size:12px;display:flex;justify-content:space-between;gap:10px}
 @media(max-width:800px){.workspace{grid-template-columns:1fr}.intro{padding-top:32px}.panel{padding:16px}.wrap{width:calc(100% - 26px)}}
+
 

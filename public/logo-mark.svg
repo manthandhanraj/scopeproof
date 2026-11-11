@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>ScopeProof Evidence Link</title>
+  <g transform="rotate(-35 32 32)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 17H20C11.7 17 5 23.7 5 32s6.7 15 15 15h8" stroke="#003add"/>
+    <path d="M36 17h8c8.3 0 15 6.7 15 15s-6.7 15-15 15h-8" stroke="#3c9dff"/>
+  </g>
+  <path d="m23 32 6 6 13-15" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m23 32 6 6 13-15" stroke="#001c64" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
