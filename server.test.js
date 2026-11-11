@@ -8,7 +8,7 @@ import test, { beforeEach } from 'node:test';
 import { app, groundItems } from './server.js';
 
 beforeEach(t => {
-  for (const key of ['RENDER', 'NODE_ENV', 'DEMO_USERNAME', 'DEMO_PASSWORD']) {
+  for (const key of ['RENDER', 'NODE_ENV', 'DEMO_USERNAME', 'DEMO_PASSWORD', 'SESSION_SECRET', 'SUPABASE_URL', 'SUPABASE_ANON_KEY']) {
     const original = process.env[key];
     delete process.env[key];
     t.after(() => { if (original === undefined) delete process.env[key]; else process.env[key] = original; });
@@ -17,28 +17,34 @@ beforeEach(t => {
 
 test('hosted demo requires credentials and protects its UI and APIs', async t => {
   process.env.NODE_ENV = 'production';
-  assert.throws(() => app(':memory:'), /DEMO_USERNAME/);
+  assert.throws(() => app(':memory:'), /SESSION_SECRET/);
   process.env.DEMO_USERNAME = 'judge';
   process.env.DEMO_PASSWORD = 'a-long-test-password';
   const server = app(':memory:');
   t.after(() => server.emit('close'));
-  const get = (url, authorization) => new Promise(resolve => {
+  const get = (url, cookie, payload) => new Promise(resolve => {
     const res = {
       headers: {}, setHeader(name, value) { this.headers[name] = value; },
       writeHead(status) { this.status = status; return this; },
       end(content) { resolve({ status: this.status, headers: this.headers, content: String(content) }); },
     };
-    server.emit('request', { method: 'GET', url, headers: { authorization } }, res);
+    const req = Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]);
+    Object.assign(req, { method: payload === undefined ? 'GET' : 'POST', url, headers: { cookie, 'content-type': 'application/json' } });
+    server.emit('request', req, res);
   });
   assert.equal((await get('/health')).status, 200);
-  for (const url of ['/', '/api/config', '/api/invoice/unknown']) {
+  assert.match((await get('/')).content, /Try demo/);
+  for (const url of ['/api/config', '/api/invoice/unknown']) {
     const response = await get(url);
     assert.equal(response.status, 401);
-    assert.ok(response.headers['WWW-Authenticate']);
+    assert.equal(response.headers['WWW-Authenticate'], undefined);
   }
-  const auth = `Basic ${Buffer.from('judge:a-long-test-password').toString('base64')}`;
-  assert.equal((await get('/', auth)).status, 200);
-  assert.equal((await get('/.env', auth)).status, 404);
+  const session = await get('/api/auth/demo', undefined, {});
+  const cookie = session.headers['Set-Cookie'].split(';')[0];
+  assert.match(session.headers['Set-Cookie'], /HttpOnly; SameSite=Lax/);
+  assert.match((await get('/', cookie)).content, /Invoice review/);
+  assert.equal((await get('/.env', cookie)).status, 404);
+  assert.equal((await get('/api/config', cookie + 'tampered')).status, 401);
 });
 
 test('grounding sorts original evidence and holds unsupported or conflicting charges', () => {
@@ -72,6 +78,10 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   const id = 'INV2-AAAA-BBBB-CCCC-DDDD';
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     const { hostname, pathname } = new URL(url);
+    if (hostname === 'accounts.supabase.co') {
+      assert.equal(pathname, '/auth/v1/token');
+      return Response.json({ access_token: 'verified-provider-session', user: { id: 'account-123', email: 'judge@example.test' } });
+    }
     if (hostname === 'generativelanguage.googleapis.com') {
       if (++analyses === 1) return Response.json({ error: { status: 'UNAVAILABLE' } }, { status: 503 });
       const { contents } = JSON.parse(options.body);
@@ -109,19 +119,23 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   const database = join(mkdtempSync(join(tmpdir(), 'scopeproof-test-')), 'invoices.sqlite');
   let server = app(database);
   t.after(() => server.emit('close'));
+  let cookie;
   const request = (path, payload) => new Promise(resolve => {
     const req = Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]);
     req.method = payload === undefined ? 'GET' : 'POST';
-    req.headers = { authorization: `Basic ${Buffer.from('judge:a-long-test-password').toString('base64')}` };
+    req.headers = { cookie };
     if (payload !== undefined) req.headers['content-type'] = 'application/json';
     req.url = path;
     const res = {
-      setHeader() {},
+      headers: {},
+      setHeader(name, value) { this.headers[name] = value; },
       writeHead(status) { this.status = status; return this; },
-      end(content) { resolve(new Response(content, { status: this.status })); },
+      end(content) { resolve(new Response(content, { status: this.status, headers: this.headers })); },
     };
     server.emit('request', req, res);
   });
+  const session = await request('/api/auth/demo', {});
+  cookie = session.headers.get('set-cookie').split(';')[0];
   assert.match(await (await request('/')).text(), /Invoice review/);
   assert.equal((await request('/app.js')).status, 200);
   assert.equal((await request('/style.css')).status, 200);
@@ -158,4 +172,13 @@ test('HTTP handlers for UI, AI review, confirmation, invoice recovery, and statu
   assert.equal((await request(`/api/invoice/${receipt.reference.slice(0, -1)}x`)).status, 404);
   assert.equal((await request('/api/invoice', payload)).status, 409);
   assert.equal(drafts, 1);
+  server.emit('close');
+  process.env.SUPABASE_URL = 'https://accounts.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'public-test-key';
+  server = app(database);
+  const accountLogin = await request('/api/auth/login', { email: 'judge@example.test', password: 'test-password' });
+  assert.equal(accountLogin.status, 200);
+  cookie = accountLogin.headers.get('set-cookie').split(';')[0];
+  assert.equal((await request(`/api/invoice/${receipt.reference}`)).status, 404);
+  assert.equal((await request(`/api/invoice/${operation}`)).status, 404);
 });

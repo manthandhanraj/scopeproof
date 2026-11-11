@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
+import { authentication } from './auth.js';
 
 const sandbox = 'https://api-m.sandbox.paypal.com';
 const model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
@@ -18,6 +19,7 @@ const files = {
   '/style.css': ['style.css', 'text/css'],
   '/logo.svg': ['logo-mark.svg', 'image/svg+xml'],
   '/favicon.svg': ['logo-mark.svg', 'image/svg+xml'],
+  '/login.js': ['login.js', 'text/javascript'],
 };
 
 const schema = {
@@ -177,14 +179,14 @@ async function invoiceStatus(token, id) {
   return { id, status: data.status, buyerUrl, amount: data.amount?.value ?? null };
 }
 
-async function issueInvoice(db, payload) {
+async function issueInvoice(db, payload, owner = 'demo') {
   const { operation, email, items } = invoiceInput(payload);
   const token = await paypalToken();
   const fingerprint = createHash('sha256').update(JSON.stringify({ email, items })).digest('hex');
   let row = db.prepare('SELECT * FROM invoices WHERE operation = ?').get(operation);
-  if (row && row.fingerprint !== fingerprint) throw error(409, 'This invoice request already has a different recipient or amount.');
+  if (row && (row.owner !== owner || row.fingerprint !== fingerprint)) throw error(409, 'This invoice request already belongs to another review.');
   if (!row) {
-    db.prepare('INSERT INTO invoices VALUES (?, ?, NULL)').run(operation, fingerprint);
+    db.prepare('INSERT INTO invoices (operation, fingerprint, paypal_id, owner) VALUES (?, ?, NULL, ?)').run(operation, fingerprint, owner);
     try {
       const { data, location } = await paypal(token, '', 'POST', {
         detail: { currency_code: 'USD', note: 'ScopeProof sandbox demo invoice' },
@@ -223,18 +225,18 @@ async function body(req) {
 }
 
 export function app(database = process.env.DATABASE_PATH || 'scopeproof.sqlite') {
-  const username = process.env.DEMO_USERNAME;
-  const password = process.env.DEMO_PASSWORD;
+  const password = process.env.SESSION_SECRET || process.env.DEMO_PASSWORD;
   const hosted = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
-  if ((username || password || hosted) && (!username || username.includes(':') || !password || password.length < 16)) {
-    throw new Error('Set DEMO_USERNAME and a DEMO_PASSWORD of at least 16 characters before hosting.');
-  }
-  const authorization = username && createHash('sha256').update(`Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`).digest();
+  if ((password || hosted) && (!password || password.length < 16)) throw new Error('Set SESSION_SECRET to at least 16 characters before hosting.');
+  const auth = authentication(password || 'scopeproof-local-development-secret', hosted);
   const instance = randomUUID();
-  const signature = id => createHmac('sha256', password).update(id).digest('hex');
-  const receipt = data => password ? { ...data, reference: `${data.id}.${signature(data.id)}` } : data;
+  const signature = (id, owner) => createHmac('sha256', password).update(owner === 'demo' ? id : `${owner}:${id}`).digest('hex');
+  const receipt = (data, owner) => password ? { ...data, reference: `${data.id}.${signature(data.id, owner)}` } : data;
   const db = new DatabaseSync(database);
   db.exec('CREATE TABLE IF NOT EXISTS invoices (operation TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, paypal_id TEXT)');
+  if (!db.prepare('PRAGMA table_info(invoices)').all().some(column => column.name === 'owner')) {
+    db.exec("ALTER TABLE invoices ADD COLUMN owner TEXT NOT NULL DEFAULT 'demo'");
+  }
   return createServer(async (req, res) => {
     const pathname = (req.url || '').split('?')[0];
     res.setHeader('Cache-Control', 'no-store');
@@ -246,34 +248,37 @@ export function app(database = process.env.DATABASE_PATH || 'scopeproof.sqlite')
         db.prepare('SELECT 1').get();
         return json({ status: 'ok' });
       }
-      if (authorization && !timingSafeEqual(authorization, createHash('sha256').update(req.headers.authorization || '').digest())) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="ScopeProof judge demo", charset="UTF-8"');
-        return json({ error: 'Sign in using the judge demo credentials supplied with the submission.' }, 401);
+      if (req.method === 'GET' && pathname === '/api/auth/config') return json({ accountsEnabled: auth.configured });
+      if (req.method === 'POST' && pathname.startsWith('/api/auth/')) {
+        return json(await auth.action(pathname, await body(req), res));
       }
+      const user = auth.user(req);
       if (req.method === 'GET' && Object.hasOwn(files, pathname)) {
-        const [file, mime] = files[pathname];
+        let [file, mime] = files[pathname];
+        if (pathname === '/' && !user) file = 'login.html';
         const content = await readFile(new URL(`./public/${file}`, import.meta.url));
         return res.writeHead(200, { 'content-type': `${mime}; charset=utf-8` }).end(content);
       }
-      if (req.method === 'GET' && pathname === '/api/config') return json({ buyer: process.env.PAYPAL_SANDBOX_BUYER || '', instance });
+      if (!user) return json({ error: 'Please sign in or try the demo to continue.' }, 401);
+      if (req.method === 'GET' && pathname === '/api/config') return json({ buyer: process.env.PAYPAL_SANDBOX_BUYER || '', instance, user: { id: user.id, name: user.name, demo: user.demo } });
       if (req.method === 'POST' && pathname === '/api/analyze') return json(await analyze(await body(req)));
       if (req.method === 'POST' && pathname === '/api/invoice') {
         const payload = await body(req);
         if (process.env.RENDER === 'true' && payload.instance !== instance) {
           throw error(409, 'The service restarted. Check your previous invoice in PayPal Sandbox, then reload and review before creating a new invoice.');
         }
-        return json(receipt(await issueInvoice(db, payload)));
+        return json(receipt(await issueInvoice(db, payload, user.id), user.id));
       }
       if (req.method === 'GET' && pathname.startsWith('/api/invoice/')) {
         const operation = pathname.slice('/api/invoice/'.length);
         const [id, proof = ''] = operation.split('.');
         if (password && paypalId.test(id) && /^[a-f0-9]{64}$/.test(proof) &&
-            timingSafeEqual(Buffer.from(signature(id)), Buffer.from(proof))) {
-          return json(receipt(await invoiceStatus(await paypalToken(), id)));
+            timingSafeEqual(Buffer.from(signature(id, user.id)), Buffer.from(proof))) {
+          return json(receipt(await invoiceStatus(await paypalToken(), id), user.id));
         }
-        const row = uuid.test(operation) && db.prepare('SELECT paypal_id FROM invoices WHERE operation = ?').get(operation);
+        const row = uuid.test(operation) && db.prepare('SELECT paypal_id FROM invoices WHERE operation = ? AND owner = ?').get(operation, user.id);
         if (!row?.paypal_id) throw error(404, 'Invoice not found.');
-        return json(receipt(await invoiceStatus(await paypalToken(), row.paypal_id)));
+        return json(receipt(await invoiceStatus(await paypalToken(), row.paypal_id), user.id));
       }
       return json({ error: 'Page not found.' }, 404);
     } catch (cause) {

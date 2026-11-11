@@ -23,7 +23,9 @@ services:
         sync: false
       - key: PAYPAL_SANDBOX_BUYER
         sync: false
-      - key: DEMO_USERNAME
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
         sync: false
-      - key: DEMO_PASSWORD
+      - key: SUPABASE_ANON_KEY
         sync: false

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to ScopeProof</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/login.js"></script>
+</head>
+<body>
+  <header class="top"><div class="wrap brand"><img class="brand-logo" src="/logo.svg" alt="" width="40" height="40"> ScopeProof <span class="mode">SANDBOX</span></div></header>
+  <main class="wrap welcome">
+    <section class="welcome-story">
+      <p class="eyebrow">CLIENT APPROVALS, MADE CLEAR</p>
+      <h1>Every charge.<br><em>Backed by approval.</em></h1>
+      <p>Turn a project brief and client conversation into an invoice you can confidently explain.</p>
+      <div class="welcome-example">
+        <span class="badge approved">APPROVED</span>
+        <blockquote>“Approved, please add the mobile redesign for $75.”</blockquote>
+        <div class="total"><span>Work backed by evidence</span><strong>$375.00</strong></div>
+        <p class="hint">Review the decision. Confirm the charges. Create a PayPal Sandbox invoice.</p>
+      </div>
+    </section>
+    <section class="panel login-panel" aria-labelledby="login-heading">
+      <p class="eyebrow">WELCOME TO SCOPEPROOF</p>
+      <h2 id="login-heading">See your next invoice clearly.</h2>
+      <p class="hint">Explore the full sample workflow in a demo workspace.</p>
+      <button id="demo" class="primary" type="button">Try demo <span aria-hidden="true">↗</span></button>
+      <p class="demo-note">No signup required · PayPal Sandbox test payments</p>
+      <div class="login-divider"><span>or use your account</span></div>
+      <div class="auth-tabs" role="group" aria-label="Account action">
+        <button id="login-tab" class="auth-tab selected" type="button" aria-pressed="true">Sign in</button>
+        <button id="signup-tab" class="auth-tab" type="button" aria-pressed="false">Create account</button>
+      </div>
+      <form id="account-form">
+        <label for="account-email">Email address</label>
+        <input id="account-email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com">
+        <label for="account-password">Password</label>
+        <input id="account-password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required placeholder="Enter your password">
+        <button id="account-submit" type="submit" class="primary">Sign in</button>
+      </form>
+      <p id="auth-message" class="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer class="wrap">ScopeProof <span>Gemini + PayPal Sandbox</span></footer>
+</body>
+</html>

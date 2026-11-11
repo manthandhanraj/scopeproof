@@ -19,12 +19,14 @@ let previousReview;
 let reviewItems = [];
 let receiptOperation;
 let serverInstance;
+let receiptStorage;
 
 async function request(url, data) {
   const response = await fetch(url, data === undefined ? {} : {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data),
   });
   const result = await response.json();
+  if (response.status === 401) location.assign('/');
   if (!response.ok) throw new Error(result.error || 'Request failed. Try again.');
   return result;
 }
@@ -175,7 +177,7 @@ el('analyze').addEventListener('submit', async event => {
 function showReceipt(data) {
   if (data.reference) {
     receiptOperation = data.reference;
-    try { localStorage.setItem('scopeproof.invoice', receiptOperation); } catch { /* Browser storage can be unavailable. */ }
+    try { localStorage.setItem(receiptStorage, receiptOperation); } catch { /* Browser storage can be unavailable. */ }
   }
   el('receipt').hidden = false;
   el('status').textContent = data.status.replaceAll('_', ' ');
@@ -201,7 +203,7 @@ el('invoice').addEventListener('submit', async event => {
   el('issue').disabled = true;
   submitted ||= { operation, instance: serverInstance, email: el('email').value.trim(), items: selectedItems(), confirmed: el('confirmed').checked };
   receiptOperation = submitted.operation;
-  try { localStorage.setItem('scopeproof.invoice', receiptOperation); } catch { /* Browser storage can be unavailable. */ }
+  try { localStorage.setItem(receiptStorage, receiptOperation); } catch { /* Browser storage can be unavailable. */ }
   el('email').disabled = true;
   el('confirmed').disabled = true;
   el('items').querySelectorAll('input').forEach(input => { input.disabled = true; });
@@ -233,16 +235,26 @@ el('refresh').addEventListener('click', async () => {
   }
 });
 
-request('/api/config').then(({ buyer, instance }) => {
-  serverInstance = instance;
-  if (!el('email').value) el('email').value = buyer;
-}).catch(() => {});
+el('signout').addEventListener('click', async () => {
+  await request('/api/auth/logout', {});
+  location.assign('/');
+});
 
-try {
-  receiptOperation = localStorage.getItem('scopeproof.invoice');
-  if (receiptOperation) refreshReceipt().catch(error => {
-    el('receipt').hidden = false;
-    el('status').textContent = 'Check previous invoice';
-    el('receipt-message').textContent = `${error.message} Check the Sandbox Invoicing dashboard before issuing another invoice.`;
-  });
-} catch { /* The rest of the app also works without browser storage. */ }
+request('/api/config').then(({ buyer, instance, user }) => {
+  serverInstance = instance;
+  el('account-name').textContent = user.demo ? 'Demo workspace' : user.name;
+  if (user.demo && !el('brief').value && !el('chat').value) {
+    el('brief').value = sampleBrief;
+    el('chat').value = sampleChat;
+  }
+  if (!el('email').value) el('email').value = buyer;
+  receiptStorage = `scopeproof.invoice.${user.id}`;
+  try {
+    receiptOperation = localStorage.getItem(receiptStorage) || (user.demo ? localStorage.getItem('scopeproof.invoice') : null);
+    if (receiptOperation) refreshReceipt().catch(error => {
+      el('receipt').hidden = false;
+      el('status').textContent = 'Check previous invoice';
+      el('receipt-message').textContent = `${error.message} Check the Sandbox Invoicing dashboard before issuing another invoice.`;
+    });
+  } catch { /* The rest of the app also works without browser storage. */ }
+}).catch(() => {});

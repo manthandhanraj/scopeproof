@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 const live = process.argv.includes('--live');
 const source = new URL('../', import.meta.url);
 const checkout = await mkdtemp(join(tmpdir(), 'scopeproof-verify-'));
-const publicFiles = ['package.json', 'server.js', 'server.test.js', 'public', 'scripts', 'README.md', 'DEPLOYMENT.md', 'SUBMISSION.md', 'render.yaml', 'LICENSE', '.env.example', '.gitignore'];
+const publicFiles = ['package.json', 'auth.js', 'auth.test.js', 'server.js', 'server.test.js', 'public', 'scripts', 'README.md', 'DEPLOYMENT.md', 'SUBMISSION.md', 'render.yaml', 'LICENSE', '.env.example', '.gitignore'];
 for (const name of publicFiles) await cp(new URL(name, source), join(checkout, name), { recursive: true });
 console.log('Fresh source copy prepared without credentials or existing invoice data.');
 
@@ -22,16 +22,28 @@ const server = app(':memory:').listen(0, '127.0.0.1');
 await once(server, 'listening');
 const base = `http://127.0.0.1:${server.address().port}`;
 try {
+  const login = await (await fetch(base)).text();
+  const loginScript = await (await fetch(`${base}/login.js`)).text();
+  assert.ok(login.includes('Try demo'));
+  for (const id of [...loginScript.matchAll(/el\('([^']+)'\)/g)].map(match => match[1])) {
+    assert.ok(login.includes(`id="${id}"`), `Missing login element: ${id}`);
+  }
+  const session = await fetch(`${base}/api/auth/demo`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+  });
+  assert.equal(session.status, 200);
+  const cookie = session.headers.get('set-cookie').split(';')[0];
+  const request = (path, options = {}) => fetch(base + path, { ...options, headers: { ...options.headers, cookie } });
   for (const path of ['/', '/app.js', '/style.css', '/logo.svg', '/favicon.svg']) {
-    const response = await fetch(base + path);
+    const response = await request(path);
     assert.equal(response.status, 200);
     assert.ok((await response.text()).length > 100);
   }
   for (const path of ['/.env', '/scopeproof.sqlite', '/server.js']) {
-    assert.equal((await fetch(base + path)).status, 404);
+    assert.equal((await request(path)).status, 404);
   }
-  const html = await (await fetch(base)).text();
-  const script = await (await fetch(`${base}/app.js`)).text();
+  const html = await (await request('/')).text();
+  const script = await (await request('/app.js')).text();
   for (const id of [...script.matchAll(/el\('([^']+)'\)/g)].map(match => match[1])) {
     assert.ok(html.includes(`id="${id}"`), `Missing UI element: ${id}`);
   }
@@ -55,7 +67,7 @@ try {
       ['conflicting prices', 'Designer: The redesign quote lists $75 USD, but my follow-up lists $95 USD. Which price do you approve?\nClient: Go ahead with the redesign. I will confirm which of those prices applies tomorrow.', 30000, 'needs_review', null],
     ];
     for (const [name, chat, total, status, cents] of cases) {
-      const response = await fetch(`${base}/api/analyze`, {
+      const response = await request('/api/analyze', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ brief, chat }),
       });
       const review = await response.json();
